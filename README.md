@@ -1,2 +1,11 @@
 # SensorDeGas
-Sensor de gás para detectar vazamento de gás, projeto da disciplina de Performance em Sistemas Ciberfísicos
+
+
+---------------------------------------
+      Sensor de Vazamento de Gás
+---------------------------------------
+Autores:
+    Thales Henrique Calil
+    Vitor de Oliveira Lisboa
+    Enzo Alves de Barros
+    Leonardo Ceccon Sobol
