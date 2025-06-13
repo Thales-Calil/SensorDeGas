@@ -20,6 +20,10 @@ const char* password_sta = "RoteadorCasa#4";
 
 const int limiteGas = 400;
 
+const int maxLeituras = 20;
+int historicoLeituras[maxLeituras];
+int posLeitura = 0;
+
 WebServer server(80);
 
 int gasLevel = 0;
@@ -31,9 +35,9 @@ String gerarPaginaWeb() {
   html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
   html += "<title>Monitor de Gás ESP32</title>";
   html += "<style>body{font-family:Arial;text-align:center;} .alerta{color:red;font-weight:bold;}</style>";
+  html += "<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>";
   html += "</head><body>";
   html += "<h2>Monitor de Gás - ESP32</h2>";
-  html += "<p>Leitura atual do gás: <strong>" + String(gasLevel) + "</strong></p>";
 
   if (alarmeAtivado) {
     html += "<p class='alerta'>!!! ALERTA: Gás detectado em alta concentração !!!</p>";
@@ -41,8 +45,30 @@ String gerarPaginaWeb() {
     html += "<p>Status: Normal</p>";
   }
 
-  html += "<p><em>Atualiza a cada 1 segundo...</em></p>";
-  html += "<script>setTimeout(()=>{location.reload();}, 1000);</script>";
+  html += "<canvas id='graficoGas' width='300' height='150'></canvas>";
+  html += "<script>";
+  html += "let grafico;";
+  html += "async function atualizarGrafico() {";
+  html += "  const resp = await fetch('/dados');";
+  html += "  const dados = await resp.json();";
+  html += "  const labels = dados.map((_, i) => i+1);";
+  html += "  if (!grafico) {";
+  html += "    const ctx = document.getElementById('graficoGas').getContext('2d');";
+  html += "    grafico = new Chart(ctx, {";
+  html += "      type: 'line',";
+  html += "      data: { labels: labels, datasets: [{ label: 'Nível de Gás', data: dados, borderColor: 'red', fill: false }] },";
+  html += "      options: { responsive: true, animation: false, scales: { y: { beginAtZero: true } } }";
+  html += "    });";
+  html += "  } else {";
+  html += "    grafico.data.labels = labels;";
+  html += "    grafico.data.datasets[0].data = dados;";
+  html += "    grafico.update();";
+  html += "  }";
+  html += "}";
+  html += "setInterval(atualizarGrafico, 2000);";
+  html += "atualizarGrafico();";
+  html += "</script>";
+
   html += "</body></html>";
   return html;
 }
@@ -76,6 +102,17 @@ void setup() {
     server.send(200, "text/html", gerarPaginaWeb());
   });
 
+  server.on("/dados", []() {
+    String json = "[";
+    for (int i = 0; i < maxLeituras; i++) {
+      int index = (posLeitura + i) % maxLeituras;
+      json += String(historicoLeituras[index]);
+      if (i < maxLeituras - 1) json += ",";
+    }
+    json += "]";
+    server.send(200, "application/json", json);
+  });
+
   server.begin();
   Serial.println("Servidor web iniciado.");
 
@@ -87,6 +124,10 @@ void loop() {
 
   if (millis() - ultimaLeitura >= intervalo) {
     gasLevel = analogRead(gasSensorPin);
+
+    historicoLeituras[posLeitura] = gasLevel;
+    posLeitura = (posLeitura + 1) % maxLeituras;
+
     Serial.print("Leitura do gás: ");
     Serial.println(gasLevel);
 
